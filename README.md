@@ -16,7 +16,7 @@ A bash script that allows data to be synchronised between multiple configured Mo
 - Use the script like this:
 
   ```bash
-  ./mongo-sync dev prod	[options]	# Push DB from dev to prod
+  ./mongo-sync dev prod [options] # Push DB from dev to prod
   ```
 
 - Options
@@ -29,7 +29,7 @@ A bash script that allows data to be synchronised between multiple configured Mo
 ## Notes
 
 - `mongo-sync` requires `mongodump` and `mongorestore` binaries to be installed in your system. If you have [`mongodb`](http://docs.mongodb.org/manual/tutorial/#getting-started) installed, then you probably already have them
-- Pushing/Pulling **_overwrites_** the Target DB
+- Pushing **_overwrites_** the Target DB
 - It's a good idea to keep your `config.yml` in `.gitignore` if you're using it inside some other project
 
 ## License
