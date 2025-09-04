@@ -6,34 +6,34 @@ local:
     url: 'localhost'
     port: 27017
   access:
-    username: 'root'
-    password: 'easo336'
+    username: 'user'
+    password: '*****'
   tunnel:
     on: false
     username: 'remote_ssh_user'
     port: 22
 
 dev:
-  db: 'payloadcms'
+  db: 'test'
   host:
     url: '10.20.1.22'
     port: 27017
   access:
-    username: 'ESGReadWrite'
-    password: '2bq3qrtxzJdF'
+    username: 'user'
+    password: '*****'
   tunnel:
     on: false
     username: 'remote_ssh_user'
     port: 22
 
 prod:
-  db: 'payloadcms'
+  db: 'test'
   host:
-    url: '10.20.1.22'
+    url: '10.20.1.23'
     port: 27019
   access:
-    username: 'MongoDBReadWrite'
-    password: 'd5aaefb12e46b3791099db8b88892252'
+    username: 'user'
+    password: '*****'
   tunnel:
     on: false
     username: 'remote_ssh_user'
