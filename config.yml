@@ -1,30 +1,42 @@
 # Mongo-Sync Configurations
 
 local:
-  db: 'local_db_name'
+  db: 'test'
   host:
+    url: 'localhost'
     port: 27017
   access:
-    username: 'local_mongo_user'
-    password: 'local_mongo_pass'
-
-remote:
-  db: 'remote_db_name'
-  host:
-    url: 'some.remoteurl.com'
-    port: 27017
-  access:
-    username: 'remote_mongo_user'
-    password: 'remote_mongo_pass'
-
-tunnel:
-  on: false
-  access:
+    username: 'root'
+    password: 'easo336'
+  tunnel:
+    on: false
     username: 'remote_ssh_user'
     port: 22
 
-# For now :local just
-# assumes DB is at localhost:port
+dev:
+  db: 'payloadcms'
+  host:
+    url: '10.20.1.22'
+    port: 27017
+  access:
+    username: 'ESGReadWrite'
+    password: '2bq3qrtxzJdF'
+  tunnel:
+    on: false
+    username: 'remote_ssh_user'
+    port: 22
 
+prod:
+  db: 'payloadcms'
+  host:
+    url: '10.20.1.22'
+    port: 27019
+  access:
+    username: 'MongoDBReadWrite'
+    password: 'd5aaefb12e46b3791099db8b88892252'
+  tunnel:
+    on: false
+    username: 'remote_ssh_user'
+    port: 22
 # All of the parameters above are required,
 # without them, the script will fail
