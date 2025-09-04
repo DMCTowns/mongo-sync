@@ -16,6 +16,7 @@ A bash script that allows data to be synchronised between multiple configured Mo
 - Use the script like this:
 
   ```bash
+  ./mongo-sync local dev [options] # Push DB from local to dev
   ./mongo-sync dev prod [options] # Push DB from dev to prod
   ```
 
