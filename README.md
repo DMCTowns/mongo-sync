@@ -1,5 +1,7 @@
 # mongo-sync
 
+A bash script that allows data to be synchronised between multiple configured MongoDB instances
+
 ## Usage
 
 - Download / Clone the script
