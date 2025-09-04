@@ -13,10 +13,21 @@ function cleanup {
         rm -rf $TMPDIR
         unset TMPDIR
     fi
+    unset FROM_CREDENTIALS
+    unset FROM_HOST
+    unset FROM_PORT
+    unset FROM_DB
+    unset FROM_TUNNEL_ENABLED
+    unset FROM_TUNNEL_CREDENTIALS
+    unset FROM_TUNNEL_PORT
+    unset TO_CREDENTIALS
+    unset TO_HOST
+    unset TO_PORT
+    unset TO_DB
+    unset TO_TUNNEL_ENABLED
+    unset TO_TUNNEL_CREDENTIALS
+    unset TO_TUNNEL_PORT
     unset TUNNEL_PORT
-    unset TUNNEL_CREDENTIALS
-    unset LOCAL_CREDENTIALS
-    unset REMOTE_CREDENTIALS
 }
 
 function error {
@@ -35,7 +46,7 @@ trap 'error ${LINENO}' ERR
 
 function usage_error {
     echo mongo-sync: "$1"
-    echo "usage: mongo-sync push|pull"
+    echo "usage: mongo-sync <from> <to>"
     echo ""
     exit
 }
@@ -80,7 +91,7 @@ function get_script_dir {
 }
 
 function get_confirmation() {
-    read -p "Are you sure you want to $1? Enter 'yes': " mongo_confr
+    read -p "Are you sure you want to push data from $1 to $2? Enter 'yes': " mongo_confr
 
     case $mongo_confr in
         [yY][Ee][Ss] )  ;;
@@ -106,31 +117,48 @@ function load_configs {
        config_not_found $config
     fi
 
-    # Loads:
-    # - $local_db
-    # - $local_host_port
-    # - $local_access_username
-    # - $local_access_password
-    # - $remote_db
-    # - $remote_host_url
-    # - $remote_host_port
-    # - $remote_access_username
-    # - $remote_access_password
-    # - $tunnel_on
-    # - $tunnel_access_username
-    # - $tunnel_access_port
+    local from_access_username=$1_access_username
+    local from_access_password=$1_access_password
+    local from_host_url=$1_host_url
+    local from_host_port=$1_host_port
+    local from_db=$1_db
+    local from_tunnel_on=$1_tunnel_on
+    local from_tunnel_username=$1_tunnel_username
+    local from_tunnel_port=$1_tunnel_port
 
-    LOCAL_CREDENTIALS=""
-    if [[ ! -z $local_access_username ]] ; then
-        LOCAL_CREDENTIALS="-u $local_access_username -p $local_access_password"
+    local to_access_username=$2_access_username
+    local to_access_password=$2_access_password
+    local to_host_url=$2_host_url
+    local to_host_port=$2_host_port
+    local to_db=$2_db
+    local to_tunnel_on=$2_tunnel_on
+    local to_tunnel_username=$2_tunnel_username
+    local to_tunnel_port=$2_tunnel_port
+
+    FROM_CREDENTIALS=""
+    if [[ ! -z ${!from_access_username} ]] ; then
+        FROM_CREDENTIALS="-u ${!from_access_username} -p ${!from_access_password}"
     fi
 
-    REMOTE_CREDENTIALS=""
-    if [[ ! -z $remote_access_username ]] ; then
-        REMOTE_CREDENTIALS="-u $remote_access_username -p $remote_access_password"
+    FROM_HOST=${!from_host_url}
+    FROM_PORT=${!from_host_port}
+    FROM_DB=${!from_db}
+    FROM_TUNNEL_ENABLED=${!from_tunnel_on}
+    FROM_TUNNEL_CREDENTIALS="${!from_tunnel_username}@${!from_host_url}"
+    FROM_TUNNEL_PORT=${!from_tunnel_port}
+
+    TO_CREDENTIALS=""
+    if [[ ! -z ${!to_access_username} ]] ; then
+        TO_CREDENTIALS="-u ${!to_access_username} -p ${!to_access_password}"
     fi
 
-    TUNNEL_CREDENTIALS="$tunnel_access_username@$remote_host_url"
+    TO_HOST=${!to_host_url}
+    TO_PORT=${!to_host_port}
+    TO_DB=${!to_db}
+    TO_TUNNEL_ENABLED=${!fto_tunnel_on}
+    TO_TUNNEL_CREDENTIALS="${!fto_tunnel_username}@${!fto_host_url}"
+    TO_TUNNEL_PORT=${!to_tunnel_port}
+
     TUNNEL_PORT=27018
 
     TMPDIR=/tmp/"$local_db"/dump
@@ -153,124 +181,103 @@ function done_msg {
 
 function open_tunnel {
     echo "Connecting through SSH tunnel..."
-    ssh -fqTNM -S db-sync-socket -L $TUNNEL_PORT:127.0.0.1:$remote_host_port $TUNNEL_CREDENTIALS -p $tunnel_access_port
+    ssh -fqTNM -S db-sync-socket -L $TUNNEL_PORT:127.0.0.1:$2 $1 -p $3
 }
 
 function close_tunnel {
     echo "Disconnecting from SSH tunnel..."
-    ssh -S db-sync-socket -O exit $TUNNEL_CREDENTIALS 2> /dev/null
+    ssh -S db-sync-socket -O exit $1 2> /dev/null
 }
 
-
-function pull {
-    banner
-    if [ "$1" == false ] ; then
-        get_confirmation 'pull'
-    fi
-    load_configs
-
-    if [ "$tunnel_on" == true ] ; then
-        open_tunnel
-        remote_host_url="localhost"
-        remote_host_port=$TUNNEL_PORT
-    fi
-
-    echo "Dumping Remote DB to $TMPDIR... "
-    mongodump \
-        -h "$remote_host_url":"$remote_host_port" \
-        -d "$remote_db" \
-        $REMOTE_CREDENTIALS \
-        -o "$TMPDIR" > /dev/null
-    success_msg
-
-    echo "Overwriting Local DB with Dump... "
-    mongorestore \
-        --port "$local_host_port" \
-        -d "$local_db" \
-        $LOCAL_CREDENTIALS \
-        "$TMPDIR"/"$remote_db" \
-        --drop > /dev/null
-    success_msg
-
-    if [ "$tunnel_on" == true ] ; then
-        close_tunnel
-    fi
-
-    cleanup
-    done_msg
-}
 
 function push {
     banner
-    if [ "$1" == false ] ; then
-        get_confirmation 'push'
+    if [ "$3" == false ] ; then
+        get_confirmation $1 $2
     fi
-    load_configs
+    load_configs $1 $2
 
-    if [ "$tunnel_on" == true ] ; then
-        open_tunnel
-        remote_host_url="localhost"
-        remote_host_port=$TUNNEL_PORT
+    if [ "$FROM_TUNNEL_ENABLED" == true ] ; then
+        open_tunnel $FROM_TUNNEL_CREDENTIALS $FROM_PORT $FROM_TUNNEL_PORT
+        FROM_HOST="localhost"
+        FROM_PORT=$TUNNEL_PORT
     fi
 
-    echo "Dumping Local DB to $TMPDIR... "
+    echo "Dumping $1 DB to $TMPDIR... "
     mongodump \
-        --port "$local_host_port" \
-        -d "$local_db" \
-        $LOCAL_CREDENTIALS \
+        -h "$FROM_HOST":"$FROM_PORT" \
+        -d "$FROM_DB" \
+        $FROM_CREDENTIALS \
+        --authenticationDatabase="admin" \
         -o "$TMPDIR" > /dev/null
     success_msg
 
-    echo "Overwriting Remote DB with Dump... "
+    if [ "$FROM_TUNNEL_ENABLED" == true ] ; then
+        close_tunnel $FROM_TUNNEL_CREDENTIALS
+    fi
+
+    if [ "$TO_TUNNEL_ENABLED" == true ] ; then
+        open_tunnel $TO_TUNNEL_CREDENTIALS $TO_PORT $TO_TUNNEL_PORT
+        TO_HOST="localhost"
+        TO_PORT=$TUNNEL_PORT
+    fi
+
+    echo "Overwriting $2 DB with Dump... "
     mongorestore \
-        -h "$remote_host_url":"$remote_host_port" \
-        -d "$remote_db" \
-        $REMOTE_CREDENTIALS \
-        "$TMPDIR"/"$local_db" --drop > /dev/null
+        -h "$TO_HOST":"$TO_PORT" \
+        -d "$TO_DB" \
+        $TO_CREDENTIALS \
+        --authenticationDatabase="admin" \
+        "$TMPDIR"/"$FROM_DB" --drop > /dev/null
     success_msg
 
-    if [ "$tunnel_on" == true ] ; then
-        close_tunnel
+    if [ "$TO_TUNNEL_ENABLED" == true ] ; then
+        close_tunnel $TO_TUNNEL_CREDENTIALS
     fi
 
     cleanup
     done_msg
 }
-
 
 ## MAIN
 ## ====
 
 # TODO: Add --overwrite flag
 
-if [[ $# -eq 0 ]] ; then
-    usage_error "no arguments provided"
+POSITIONAL_ARGS=()
+skip=false
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -c|--config)
+      if [ -e "$2" ] ; then
+          CONFIG_FILE="$2"
+      else
+          usage_error "No config file named \"$2\""
+      fi
+      shift # past argument
+      shift # past value
+      ;;
+     -y)
+      skip=true
+      shift # past argument
+      ;;
+    -*|--*)
+      usage_error "Unrecognized option \"$1\""
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
+if [[ $# -lt 2 ]] ; then
+    usage_error "Two arguments should be provided"
 else
-    action="$1"
-    skip=false
-    shift
-
-    while [ "${1+defined}" ]; do
-        if [ "$1" == '--config' ] ; then
-            shift
-            if [ -e "$1" ] ; then
-                CONFIG_FILE="$1"
-            else
-                usage_error "No config file named \"$1\""
-            fi
-        elif [ "$1" == '-y' ] ; then
-            skip=true
-        else
-            usage_error "unrecognized option \"$1\""
-        fi
-        shift
-    done
-
-    if [[ "$action" == 'push' ]] ; then
-        push $skip
-    elif [[ "$action" == 'pull' ]] ; then
-        pull $skip
-    else
-        usage_error "unrecognized command \"$action\""
-    fi
+    from=$1
+    to=$2
+    push $from $to $skip
 fi
